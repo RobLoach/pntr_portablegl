@@ -44,22 +44,31 @@ glContext* pntr_init_glContext(pntr_image* screen) {
     }
 
     #ifdef PNTR_PIXELFORMAT_RGBA
-    u32 Rmask = 0x00FF0000;
-    u32 Gmask = 0x0000FF00;
-    u32 Bmask = 0x000000FF;
-    u32 Amas = 0xFF000000;
+        u32 Rmask = 0xFF000000;
+        u32 Gmask = 0x00FF0000;
+        u32 Bmask = 0x0000FF00;
+        u32 Amask = 0x000000FF;
     #elif defined(PNTR_PIXELFORMAT_ARGB)
-    u32 Rmask = 0x000000FF;
-    u32 Gmask = 0x0000FF00;
-    u32 Bmask = 0x00FF0000;
-    u32 Amas = 0xFF000000;
+        #if defined(SDL_BYTEORDER) && SDL_BYTEORDER == SDL_BIG_ENDIAN
+            u32 Rmask = 0xFF000000;
+            u32 Gmask = 0x00FF0000;
+            u32 Bmask = 0x0000FF00;
+            u32 Amask = 0x000000FF;
+        #else
+            u32 Rmask = 0x00FF0000;
+            u32 Gmask = 0x0000FF00;
+            u32 Bmask = 0x000000FF;
+            u32 Amask = 0xFF000000;
+        #endif
     #endif
 
-    u32* backbuffer = screen->data;
-    if (!init_glContext(context, &backbuffer, screen->width, screen->height, sizeof(uint32_t), Rmask, Gmask, Bmask, Amas)) {
+    u32* backbuffer = (u32*)screen->data;
+    if (!init_glContext(context, &backbuffer, screen->width, screen->height, sizeof(uint32_t), Rmask, Gmask, Bmask, Amask)) {
         PNTR_FREE(context);
         return NULL;
     }
+
+    return context;
 }
 
 void basic_vs(float* vs_output, vec4* vertex_attribs, Shader_Builtins* builtins, void* uniforms)

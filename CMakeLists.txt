@@ -9,9 +9,9 @@ project(pntr_portablegl
 # Targets
 option(SDL "Build SDL" TRUE)
 option(RAYLIB "Build raylib" FALSE)
-option(LIBRETRO "Build libretro" TRUE)
-option(CLI "Build CLI" TRUE)
-option(WEB "Build Web" TRUE)
+option(LIBRETRO "Build libretro" FALSE)
+option(CLI "Build CLI" FALSE)
+option(WEB "Build Web" FALSE)
 
 # Sources
 set(SOURCES

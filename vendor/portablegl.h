@@ -10,9 +10,9 @@ before you include this file in *one* C or C++ file to create the implementation
 
 If you plan on using your own 3D vector/matrix library rather than crsw_math
 that is built into PortableGL and your names are the standard glsl vec[2-4],
-mat[3-4] etc., define PGL_MANGLE_TYPES too before including portablegl to
+mat[3-4] etc., define PGL_PREFIX_TYPES too before including portablegl to
 prefix all those builtin types with pgl_ to avoid the clash. Note, if
-you use PGL_MANGLE_TYPES and write your own shaders, the type for vertex_attribs
+you use PGL_PREFIX_TYPES and write your own shaders, the type for vertex_attribs
 is also affected, changing from vec4* to pgl_vec4*.
 
 You can check all the C++ examples and demos, I use my C++ rsw_math library.
@@ -22,21 +22,21 @@ You can check all the C++ examples and demos, I use my C++ rsw_math library.
 #include ...
 #include ...
 // if required
-#define PGL_MANGLE_TYPES
+#define PGL_PREFIX_TYPES
 
 #define PORTABLEGL_IMPLEMENTATION
 #include "portablegl.h"
 
-You can #define PGL_ASSERT(x) before the #include to avoid using assert.h.
+You can define PGL_ASSERT before the #include to avoid using assert.h.
 You can define PGL_MALLOC, PGL_REALLOC, and PGL_FREE to avoid using malloc,
 realloc, and free.
+You can define PGL_MEMMOVE to avoid using memmove.
 
-I use my CVector library for various types in PortableGL so you *can* #define
-CVEC_MEMMOVE before the #include to avoid using the standard library versions.
-However, currently, I use at least memcpy in PortableGL so doing so wouldn't
-actually avoid the standard library.  Creating equivalent PortableGL macros
-(that would automagically apply to any internally used cvectors like with the
-memory function and assert macros) is a TODO I suppose.
+However, even if you define all of those before including portablegl, you
+will still be using the standard library (math.h, string.h, stdlib.h, stdio.h
+stdint.h, possibly others). It's not worth removing PortableGL's dependency on
+the C standard library as it would make it far larger and more complicated
+for no real benefit.
 
 
 QUICK NOTES:
@@ -59,6 +59,10 @@ QUICK NOTES:
     You can specify the order using the masks in init_glContext. Technically
     it'd be relatively trivial to add support for other formats but for now
     we use a u32* to access the buffer.
+
+
+DOCUMENTATION
+=============
 
 Any PortableGL program has roughly this structure, with some things
 possibly declared globally or passed around in function parameters
@@ -157,15 +161,68 @@ pglSetInterp that lets you change the interpolation of a shader
 whenever you want.  In real OpenGL you'd have to have 2 (or more) separate
 but almost identical shaders to do that.
 
-There are also these predefined maximums which, considering the performance
-limitations of PortableGL, are probably more than enough.  MAX_DRAW_BUFFERS
-isn't used since they're not currently supported anyway.
 
-	#define MAX_VERTICES 500000
-	#define GL_MAX_VERTEX_ATTRIBS 8
-	#define GL_MAX_VERTEX_OUTPUT_COMPONENTS (4*GL_MAX_VERTEX_ATTRIBS)
-	#define GL_MAX_DRAW_BUFFERS 4
-	#define GL_MAX_COLOR_ATTACHMENTS 4
+ADDITIONAL CONFIGURATION
+========================
+
+We've already mentioned several configuration macros above but here are
+all of them:
+
+PGL_PREFIX_TYPES
+    This prefixes the standard glsl types (and a couple other internal types)
+    with pgl_ (ie vec2 becomes pgl_vec2)
+
+PGL_ASSERT
+PGL_MALLOC/PGL_REALLOC/PGL_FREE
+PGL_MEMMOVE
+    These overwride the standard functions of the same names
+
+PGL_DONT_CONVERT_TEXTURES
+    This makes passing PGL a texture with a format other than GL_RGBA an error.
+    By default other types are automatically converted. You can perform the
+    conversion manually using the function convert_format_to_packed_rgba().
+    The included function convert_grayscale_to_rgba() is also useful,
+    especially for font textures.
+
+PGL_PREFIX_GLSL or PGL_SUFFIX_GLSL
+    These replace PGL_EXCLUDE_GLSL. Since PGL depends on at least a few
+    glsl functions and potentially more in the future it doesn't make
+    sense to exclude GLSL entirely, especially since they're all inline so
+    it really doesn't save you anything in the final executable.
+    Instead, you can using one of these two macros you can change the
+    handful of functions that are likely to cause a conflict with an external
+    math library like glm (with a using declaration/directive of course).
+    So mix() would become either pgl_mix() or mixf(). So far it is less than
+    10 functions that are modified but feel free to add more.
+
+PGL_HERMITE_SMOOTHING
+    Turn on hermite smoothing when doing linear interpolation of textures.
+    It is not required by the spec and it does slow it down but it does
+    look smoother so it's worth trying if your curious. Note, most
+    implementations do not use it.
+
+PGL_SIMPLE_THICK_LINES
+    If defined, use a simpler (and less correct) thick line drawing algorithm.
+    It is (currently) about 17-18% faster than the default algorithm. It draws
+    lines that have LineWidth pixels along the x or y axis (whichever is
+    closest to perpendicular) but this makes the line thinner than it should
+    be the more diagonal the line. The ends also look wrong. Despite this
+    many implementations use this (or a similar) algorithm but cap the
+    thickness at a relatively low number (like 8) so the problems are less
+    obvious.
+
+There are also these predefined maximums which you can change.
+However, considering the performance limitations of PortableGL, they are
+probably more than enough.
+
+MAX_DRAW_BUFFERS and MAX_COLOR_ATTACHMENTS aren't used since those features aren't implemented.  PGL_MAX_VERTICES refers to the number of output vertices of a single draw
+call.  It's mostly there as a sanity check, not a real limitation.
+
+#define PGL_MAX_VERTICES 500000
+#define GL_MAX_VERTEX_ATTRIBS 8
+#define GL_MAX_VERTEX_OUTPUT_COMPONENTS (4*GL_MAX_VERTEX_ATTRIBS)
+#define GL_MAX_DRAW_BUFFERS 4
+#define GL_MAX_COLOR_ATTACHMENTS 4
 
 
 MIT License
@@ -188,7 +245,7 @@ IN THE SOFTWARE.
 
 */
 
-#ifdef PGL_MANGLE_TYPES
+#ifdef PGL_PREFIX_TYPES
 #define vec2 pgl_vec2
 #define vec3 pgl_vec3
 #define vec4 pgl_vec4
@@ -208,6 +265,31 @@ IN THE SOFTWARE.
 #define Line pgl_Line
 #define Plane pgl_Plane
 #endif
+
+
+// Add/remove as needed as long as you also modify
+// matching undef section
+
+#ifdef PGL_PREFIX_GLSL
+#define mix pgl_mix
+#define radians pgl_radians
+#define degrees pgl_degrees
+#define smoothstep pgl_smoothstep
+#define clamp_01 pgl_clamp_01
+#define clamp pgl_clamp
+#define clampi pgl_clampi
+
+#elif defined(PGL_SUFFIX_GLSL)
+
+#define mix mixf
+#define radians radiansf
+#define degrees degreesf
+#define smoothstep smoothstepf
+#define clamp_01 clampf_01
+#define clamp clampf
+#define clampi clampi
+#endif
+
 
 #ifndef GL_H
 #define GL_H
@@ -243,6 +325,20 @@ extern "C" {
 #define CVEC_REALLOC(p, sz) PGL_REALLOC(p, sz)
 #define CVEC_FREE(p) PGL_FREE(p)
 #endif
+
+#ifndef PGL_MEMMOVE
+#include <string.h>
+#define PGL_MEMMOVE(dst, src, sz)   memmove(dst, src, sz)
+#else
+#define CVEC_MEMMOVE(dst, src, sz) PGL_MEMMOVE(dst, src, sz)
+#endif
+
+#ifndef PGL_SIMPLE_THICK_LINES
+#define DRAW_THICK_LINE draw_thick_line
+#else
+#define DRAW_THICK_LINE draw_thick_line_simple
+#endif
+
 #ifndef CRSW_MATH_H
 #define CRSW_MATH_H
 
@@ -274,15 +370,13 @@ extern "C" {
 #define DEG_TO_HR(x)    ((x) * 15.0)
 #define RAD_TO_HR(x)    DEG_TO_HR(RAD_TO_DEG(x))
 
-// TODO rename RM_MAX?  make proper inline functions?
+// TODO rename RM_MAX/RSW_MAX?  make proper inline functions?
 #ifndef MAX
 #define MAX(a, b)  (((a) > (b)) ? (a) : (b))
 #endif
 #ifndef MIN
 #define MIN(a, b)  (((a) < (b)) ? (a) : (b))
 #endif
-
-#define MAP(X, A, B, C, D) (((X)-(A))/((B)-(A)) * ((D)-(C)) + (C))
 
 typedef uint8_t  u8;
 typedef uint16_t u16;
@@ -302,6 +396,16 @@ inline float rsw_randf()
 inline float rsw_randf_range(float min, float max)
 {
 	return min + (max-min) * rsw_randf();
+}
+
+inline double rsw_map(double x, double a, double b, double c, double d)
+{
+	return (x-a)/(b-a) * (d-c) + c;
+}
+
+inline float rsw_mapf(float x, float a, float b, float c, float d)
+{
+	return (x-a)/(b-a) * (d-c) + c;
 }
 
 typedef struct vec2
@@ -1325,7 +1429,7 @@ inline void extract_rotation_mat4(mat3 dst, mat4 src, int normalize)
 #undef M44
 
 
-#ifndef PGL_EXCLUDE_GLSL
+
 // Built-in GLSL functions from Chapter 8 of the GLSLangSpec.3.30.pdf
 // Some functionality is included elsewhere in crsw_math (especially
 // the geometric functions) and texture lookup functions are in
@@ -1595,6 +1699,13 @@ static inline float clamp(float x, float minVal, float maxVal)
 	return x;
 }
 
+static inline int clampi(int i, int min, int max)
+{
+	if (i < min) return min;
+	if (i > max) return max;
+	return i;
+}
+
 static inline float mix(float x, float y, float a)
 {
 	return x*(1-a) + y*a;
@@ -1676,7 +1787,6 @@ PGL_STATIC_VECTORIZE2_BVEC(notEqual)
 // currently in gl_glsl.h/c
 
 
-#endif
 
 
 
@@ -1743,6 +1853,15 @@ inline Line make_Line(float x1, float y1, float x2, float y2)
 	l.B = x2 - x1;
 	l.C = x1*y2 - x2*y1;
 	return l;
+}
+
+inline void normalize_line(Line* line)
+{
+	vec2 n = { line->A, line->B };
+	float len = length_vec2(n);
+	line->A /= len;
+	line->B /= len;
+	line->C /= len;
 }
 
 inline float line_func(Line* line, float x, float y)
@@ -2633,7 +2752,7 @@ enum
 
 
 // Feel free to change these
-#define MAX_VERTICES 500000
+#define PGL_MAX_VERTICES 500000
 #define GL_MAX_VERTEX_ATTRIBS 8
 #define GL_MAX_VERTEX_OUTPUT_COMPONENTS (4*GL_MAX_VERTEX_ATTRIBS)
 #define GL_MAX_DRAW_BUFFERS 4
@@ -4776,9 +4895,9 @@ typedef struct glContext
 // we use these internally and the user can exclude
 // those functions (with the official glsl names) to
 // avoid clashes
-float clampf_01(float f);
-float clampf(float f, float min, float max);
-int clampi(int i, int min, int max);
+//float clampf_01(float f);
+//float clampf(float f, float min, float max);
+//int clampi(int i, int min, int max);
 
 //shader texture functions
 vec4 texture1D(GLuint tex, float x);
@@ -4853,6 +4972,7 @@ void glGetBooleanv(GLenum pname, GLboolean* data);
 void glGetFloatv(GLenum pname, GLfloat* data);
 void glGetIntegerv(GLenum pname, GLint* data);
 GLboolean glIsEnabled(GLenum cap);
+GLboolean glIsProgram(GLuint program);
 
 void glClearColor(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha);
 void glClearDepth(GLclampf depth);
@@ -5071,6 +5191,7 @@ void put_pixel(Color color, int x, int y);
 int put_line(Color the_color, float x1, float y1, float x2, float y2);
 void put_wide_line_simple(Color the_color, float width, float x1, float y1, float x2, float y2);
 void put_wide_line2(Color the_color, float width, float x1, float y1, float x2, float y2);
+//void put_wide_line3(Color color1, Color color2, float width, float x1, float y1, float x2, float y2);
 
 void put_triangle(Color c1, Color c2, Color c3, vec2 p1, vec2 p2, vec2 p3);
 
@@ -5088,6 +5209,8 @@ void put_triangle(Color c1, Color c2, Color c3, vec2 p1, vec2 p2, vec2 p3);
 
 extern inline float rsw_randf();
 extern inline float rsw_randf_range(float min, float max);
+extern inline double rsw_map(double x, double a, double b, double c, double d);
+extern inline float rsw_mapf(float x, float a, float b, float c, float d);
 extern inline vec2 make_vec2(float x, float y);
 extern inline vec3 make_vec3(float x, float y, float z);
 extern inline vec4 make_vec4(float x, float y, float z, float w);
@@ -5242,6 +5365,7 @@ extern inline Color vec4_to_Color(vec4 v);
 extern inline void print_Color(Color c, const char* append);
 extern inline vec4 Color_to_vec4(Color c);
 extern inline Line make_Line(float x1, float y1, float x2, float y2);
+extern inline void normalize_line(Line* line);
 extern inline float line_func(Line* line, float x, float y);
 extern inline float line_findy(Line* line, float x);
 extern inline float line_findx(Line* line, float y);
@@ -8039,7 +8163,8 @@ static void draw_triangle(glVertex* v0, glVertex* v1, glVertex* v2, unsigned int
 
 static void draw_line_clip(glVertex* v1, glVertex* v2);
 static void draw_line_shader(vec3 hp1, vec3 hp2, float w1, float w2, float* v1_out, float* v2_out, unsigned int provoke, float poly_offset);
-static void draw_thick_line_shader(vec4 v1, vec4 v2, float* v1_out, float* v2_out, unsigned int provoke);
+static void draw_thick_line_simple(vec3 hp1, vec3 hp2, float w1, float w2, float* v1_out, float* v2_out, unsigned int provoke, float poly_offset);
+static void draw_thick_line(vec3 hp1, vec3 hp2, float w1, float w2, float* v1_out, float* v2_out, unsigned int provoke, float poly_offset);
 
 /* this clip epsilon is needed to avoid some rounding errors after
    several clipping stages */
@@ -8125,12 +8250,12 @@ static vec4 get_v_attrib(glVertex_Attrib* v, GLsizei i)
 		for (int i=0; i<v->size; i++) {
 			if (v->normalized) {
 				switch (type) {
-				case GL_BYTE:           tv[i] = MAP(i8p[i], INT8_MIN, INT8_MAX, -1.0f, 1.0f); break;
-				case GL_UNSIGNED_BYTE:  tv[i] = MAP(u8p[i], 0, UINT8_MAX, 0.0f, 1.0f); break;
-				case GL_SHORT:          tv[i] = MAP(i16p[i], INT16_MIN,INT16_MAX, 0.0f, 1.0f); break;
-				case GL_UNSIGNED_SHORT: tv[i] = MAP(u16p[i], 0, UINT16_MAX, 0.0f, 1.0f); break;
-				case GL_INT:            tv[i] = MAP(i32p[i], (i64)INT32_MIN, (i64)INT32_MAX, 0.0f, 1.0f); break;
-				case GL_UNSIGNED_INT:   tv[i] = MAP(u32p[i], 0, UINT32_MAX, 0.0f, 1.0f); break;
+				case GL_BYTE:           tv[i] = rsw_mapf(i8p[i], INT8_MIN, INT8_MAX, -1.0f, 1.0f); break;
+				case GL_UNSIGNED_BYTE:  tv[i] = rsw_mapf(u8p[i], 0, UINT8_MAX, 0.0f, 1.0f); break;
+				case GL_SHORT:          tv[i] = rsw_mapf(i16p[i], INT16_MIN,INT16_MAX, 0.0f, 1.0f); break;
+				case GL_UNSIGNED_SHORT: tv[i] = rsw_mapf(u16p[i], 0, UINT16_MAX, 0.0f, 1.0f); break;
+				case GL_INT:            tv[i] = rsw_mapf(i32p[i], INT32_MIN, INT32_MAX, 0.0f, 1.0f); break;
+				case GL_UNSIGNED_INT:   tv[i] = rsw_mapf(u32p[i], 0, UINT32_MAX, 0.0f, 1.0f); break;
 				}
 			} else {
 				switch (type) {
@@ -8153,6 +8278,8 @@ static vec4 get_v_attrib(glVertex_Attrib* v, GLsizei i)
 	return tmpvec4;
 }
 
+// TODO Possibly split for optimization and future parallelization, prep all verts first then do all shader calls at once
+// Will need num_verts * vertex_attribs_vs[] space rather than a single attribute staging area...
 static void do_vertex(glVertex_Attrib* v, int* enabled, unsigned int num_enabled, unsigned int i, unsigned int vert)
 {
 	// copy/prep vertex attributes from buffers into appropriate positions for vertex shader to access
@@ -8254,11 +8381,11 @@ static void draw_point(glVertex* vert, float poly_offset)
 
 	vec3 point = vec4_to_vec3h(vert->screen_space);
 	point.z += poly_offset; // couldn't this put it outside of [-1,1]?
-	point.z = MAP(point.z, -1.0f, 1.0f, c->depth_range_near, c->depth_range_far);
+	point.z = rsw_mapf(point.z, -1.0f, 1.0f, c->depth_range_near, c->depth_range_far);
 
 	// TODO necessary for non-perspective?
 	//if (c->depth_clamp)
-	//	clampf(point.z, c->depth_range_near, c->depth_range_far);
+	//	clamp(point.z, c->depth_range_near, c->depth_range_far);
 
 	Shader_Builtins builtins;
 	// spec pg 110 r,q are supposed to be replaced with 0 and 1...but PointCoord is a vec2
@@ -8318,7 +8445,7 @@ static void run_pipeline(GLenum mode, const GLvoid* indices, GLsizei count, GLsi
 	GLsizei i;
 	int provoke;
 
-	PGL_ASSERT(count <= MAX_VERTICES);
+	PGL_ASSERT(count <= PGL_MAX_VERTICES);
 
 	vertex_stage(indices, count, instance, base_instance, use_elements);
 
@@ -8477,6 +8604,8 @@ static void draw_line_clip(glVertex* v1, glVertex* v2)
 	float v1_out[GL_MAX_VERTEX_OUTPUT_COMPONENTS];
 	float v2_out[GL_MAX_VERTEX_OUTPUT_COMPONENTS];
 
+	vec3 hp1, hp2;
+
 	//TODO ponder this
 	unsigned int provoke;
 	if (c->provoking_vert == GL_LAST_VERTEX_CONVENTION)
@@ -8490,17 +8619,25 @@ static void draw_line_clip(glVertex* v1, glVertex* v2)
 		t1 = mult_mat4_vec4(c->vp_mat, p1);
 		t2 = mult_mat4_vec4(c->vp_mat, p2);
 
-		if (c->line_width < 1.5f)
-			draw_line_shader(vec4_to_vec3h(t1), vec4_to_vec3h(t2), t1.w, t2.w, v1->vs_out, v2->vs_out, provoke, 0.0f);
-		else
-			draw_thick_line_shader(t1, t2, v1->vs_out, v2->vs_out, provoke);
+		hp1 = vec4_to_vec3h(t1);
+		hp2 = vec4_to_vec3h(t2);
+
+		if (c->line_width < 1.5f) {
+			draw_line_shader(hp1, hp2, t1.w, t2.w, v1->vs_out, v2->vs_out, provoke, 0.0f);
+		} else {
+			DRAW_THICK_LINE(hp1, hp2, t1.w, t2.w, v1->vs_out, v2->vs_out, provoke, 0.0f);
+		}
 	} else {
 
 		d = sub_vec4s(p2, p1);
 
 		tmin = 0;
 		tmax = 1;
-		if (clip_line( d.z+d.w, -p1.z-p1.w, &tmin, &tmax) &&
+		if (clip_line( d.x+d.w, -p1.x-p1.w, &tmin, &tmax) &&
+		    clip_line(-d.x+d.w,  p1.x-p1.w, &tmin, &tmax) &&
+		    clip_line( d.y+d.w, -p1.y-p1.w, &tmin, &tmax) &&
+		    clip_line(-d.y+d.w,  p1.y-p1.w, &tmin, &tmax) &&
+		    clip_line( d.z+d.w, -p1.z-p1.w, &tmin, &tmax) &&
 		    clip_line(-d.z+d.w,  p1.z-p1.w, &tmin, &tmax)) {
 
 			//printf("%f %f\n", tmin, tmax);
@@ -8515,10 +8652,14 @@ static void draw_line_clip(glVertex* v1, glVertex* v2)
 
 			interpolate_clipped_line(v1, v2, v1_out, v2_out, tmin, tmax);
 
-			if (c->line_width < 1.5f)
-				draw_line_shader(vec4_to_vec3h(t1), vec4_to_vec3h(t2), t1.w, t2.w, v1->vs_out, v2->vs_out, provoke, 0.0f);
-			else
-				draw_thick_line_shader(t1, t2, v1->vs_out, v2->vs_out, provoke);
+			hp1 = vec4_to_vec3h(t1);
+			hp2 = vec4_to_vec3h(t2);
+
+			if (c->line_width < 1.5f) {
+				draw_line_shader(hp1, hp2, t1.w, t2.w, v1->vs_out, v2->vs_out, provoke, 0.0f);
+			} else {
+				DRAW_THICK_LINE(hp1, hp2, t1.w, t2.w, v1->vs_out, v2->vs_out, provoke, 0.0f);
+			}
 		}
 	}
 }
@@ -8591,8 +8732,8 @@ static void draw_line_shader(vec3 hp1, vec3 hp2, float w1, float w2, float* v1_o
 	}
 
 	// TODO should be done for each fragment, after poly_offset is added?
-	z1 = MAP(z1, -1.0f, 1.0f, c->depth_range_near, c->depth_range_far);
-	z2 = MAP(z2, -1.0f, 1.0f, c->depth_range_near, c->depth_range_far);
+	z1 = rsw_mapf(z1, -1.0f, 1.0f, c->depth_range_near, c->depth_range_far);
+	z2 = rsw_mapf(z2, -1.0f, 1.0f, c->depth_range_near, c->depth_range_far);
 
 	//4 cases based on slope
 	if (m <= -1) {     //(-infinite, -1]
@@ -8702,136 +8843,13 @@ static void draw_line_shader(vec3 hp1, vec3 hp2, float w1, float w2, float* v1_o
 	}
 }
 
-static int draw_perp_line(float m, float x1, float y1, float x2, float y2)
-{
-	// Assume that caller (draw_thick_line_shader) always arranged x1 < x2
-	Line line = make_Line(x1, y1, x2, y2);
-
-	frag_func fragment_shader = c->programs.a[c->cur_program].fragment_shader;
-	void* uniform = c->programs.a[c->cur_program].uniform;
-	// TODO use
-	//int fragdepth_or_discard = c->programs.a[c->cur_program].fragdepth_or_discard;
-
-	float i_x1, i_y1, i_x2, i_y2;
-	i_x1 = floor(x1) + 0.5;
-	i_y1 = floor(y1) + 0.5;
-	i_x2 = floor(x2) + 0.5;
-	i_y2 = floor(y2) + 0.5;
-
-	// TODO the central ideal lines are clipped but perpendiculars of wide lines
-	// could go off the edge
-	float x_min, x_max, y_min, y_max;
-	x_min = i_x1;
-	x_max = i_x2; //always left to right;
-	if (m <= 0) {
-		y_min = i_y2;
-		y_max = i_y1;
-	} else {
-		y_min = i_y1;
-		y_max = i_y2;
-	}
-
-	float x, y;
-	// same z for whole line was already set in caller
-	float z = c->builtins.gl_FragCoord.z;
-
-	int first_is_diag = GL_FALSE;
-
-	//4 cases based on slope
-	if (m <= -1) {     //(-infinite, -1]
-		//NOTE(rswinkle): double checking the first step but better than duplicating
-		// so much code imo
-		if (line_func(&line, x_min+0.5f, y_max-1) < 0) {
-			first_is_diag = GL_TRUE;
-		}
-		for (x = x_min, y = y_max; y>=y_min && x<=x_max; --y) {
-			if (CLIPXY_TEST(x, y)) {
-				c->builtins.gl_FragCoord.x = x;
-				c->builtins.gl_FragCoord.y = y;
-				c->builtins.discard = GL_FALSE;
-				c->builtins.gl_FragDepth = z;
-				fragment_shader(c->fs_input, &c->builtins, uniform);
-
-				if (!c->builtins.discard)
-					draw_pixel(c->builtins.gl_FragColor, x, y, c->builtins.gl_FragDepth, GL_TRUE);
-			}
-
-			if (line_func(&line, x+0.5f, y-1) < 0) //A*(x+0.5f) + B*(y-1) + C < 0)
-				++x;
-		}
-	} else if (m <= 0) {     //(-1, 0]
-		if (line_func(&line, x_min+1, y_max-0.5f) > 0) {
-			first_is_diag = GL_TRUE;
-		}
-		for (x = x_min, y = y_max; x<=x_max && y>=y_min; ++x) {
-			if (CLIPXY_TEST(x, y)) {
-				c->builtins.gl_FragCoord.x = x;
-				c->builtins.gl_FragCoord.y = y;
-				c->builtins.discard = GL_FALSE;
-				c->builtins.gl_FragDepth = z;
-				fragment_shader(c->fs_input, &c->builtins, uniform);
-
-				if (!c->builtins.discard)
-					draw_pixel(c->builtins.gl_FragColor, x, y, c->builtins.gl_FragDepth, GL_TRUE);
-			}
-
-			if (line_func(&line, x+1, y-0.5f) > 0) //A*(x+1) + B*(y-0.5f) + C > 0)
-				--y;
-		}
-	} else if (m <= 1) {     //(0, 1]
-		if (line_func(&line, x_min+1, y_min+0.5f) < 0) {
-			first_is_diag = GL_TRUE;
-		}
-		for (x = x_min, y = y_min; x <= x_max && y <= y_max; ++x) {
-			if (CLIPXY_TEST(x, y)) {
-				c->builtins.gl_FragCoord.x = x;
-				c->builtins.gl_FragCoord.y = y;
-				c->builtins.discard = GL_FALSE;
-				c->builtins.gl_FragDepth = z;
-				fragment_shader(c->fs_input, &c->builtins, uniform);
-
-				if (!c->builtins.discard)
-					draw_pixel(c->builtins.gl_FragColor, x, y, c->builtins.gl_FragDepth, GL_TRUE);
-			}
-			if (line_func(&line, x+1, y+0.5f) < 0) //A*(x+1) + B*(y+0.5f) + C < 0)
-				++y;
-		}
-	} else {    //(1, +infinite)
-		if (line_func(&line, x_min+0.5f, y_min+1) > 0) {
-			first_is_diag = GL_TRUE;
-		}
-		for (x = x_min, y = y_min; y<=y_max && x <= x_max; ++y) {
-			if (CLIPXY_TEST(x, y)) {
-				c->builtins.gl_FragCoord.x = x;
-				c->builtins.gl_FragCoord.y = y;
-				c->builtins.discard = GL_FALSE;
-				c->builtins.gl_FragDepth = z;
-				fragment_shader(c->fs_input, &c->builtins, uniform);
-
-				if (!c->builtins.discard)
-					draw_pixel(c->builtins.gl_FragColor, x, y, c->builtins.gl_FragDepth, GL_TRUE);
-			}
-			if (line_func(&line, x+0.5f, y+1) > 0) //A*(x+0.5f) + B*(y+1) + C > 0)
-				++x;
-		}
-	}
-	return first_is_diag;
-}
-
-static void draw_thick_line_shader(vec4 v1, vec4 v2, float* v1_out, float* v2_out, unsigned int provoke)
+static void draw_thick_line_simple(vec3 hp1, vec3 hp2, float w1, float w2, float* v1_out, float* v2_out, unsigned int provoke, float poly_offset)
 {
 	float tmp;
 	float* tmp_ptr;
-	// TODO add poly_offset to parameters and use
-
-	vec3 hp1 = vec4_to_vec3h(v1);
-	vec3 hp2 = vec4_to_vec3h(v2);
 
 	//print_vec3(hp1, "\n");
 	//print_vec3(hp2, "\n");
-
-	float w1 = v1.w;
-	float w2 = v2.w;
 
 	float x1 = hp1.x, x2 = hp2.x, y1 = hp1.y, y2 = hp2.y;
 	float z1 = hp1.z, z2 = hp2.z;
@@ -8862,9 +8880,6 @@ static void draw_thick_line_shader(vec4 v1, vec4 v2, float* v1_out, float* v2_ou
 	//could just use my Line type/constructor as in draw_triangle
 	float m = (y2-y1)/(x2-x1);
 	Line line = make_Line(x1, y1, x2, y2);
-	vec2 ab = { line.A, line.B };
-	normalize_vec2(&ab);
-	ab = scale_vec2(ab, c->line_width/2.0f);
 
 	float t, x, y, z, w;
 
@@ -8872,6 +8887,10 @@ static void draw_thick_line_shader(vec4 v1, vec4 v2, float* v1_out, float* v2_ou
 	vec2 pr, sub_p2p1 = sub_vec2s(p2, p1);
 	float line_length_squared = length_vec2(sub_p2p1);
 	line_length_squared *= line_length_squared;
+
+	frag_func fragment_shader = c->programs.a[c->cur_program].fragment_shader;
+	void* uniform = c->programs.a[c->cur_program].uniform;
+	int fragdepth_or_discard = c->programs.a[c->cur_program].fragdepth_or_discard;
 
 	float i_x1, i_y1, i_x2, i_y2;
 	i_x1 = floor(p1.x) + 0.5;
@@ -8890,104 +8909,265 @@ static void draw_thick_line_shader(vec4 v1, vec4 v2, float* v1_out, float* v2_ou
 		y_max = i_y2;
 	}
 
-	//printf("%f %f %f %f   =\n", i_x1, i_y1, i_x2, i_y2);
-	//printf("%f %f %f %f   x_min etc\n", x_min, x_max, y_min, y_max);
+	// TODO should be done for each fragment, after poly_offset is added?
+	z1 = rsw_mapf(z1, -1.0f, 1.0f, c->depth_range_near, c->depth_range_far);
+	z2 = rsw_mapf(z2, -1.0f, 1.0f, c->depth_range_near, c->depth_range_far);
 
-	z1 = MAP(z1, -1.0f, 1.0f, c->depth_range_near, c->depth_range_far);
-	z2 = MAP(z2, -1.0f, 1.0f, c->depth_range_near, c->depth_range_far);
-
-	int diag;
+	float width = c->line_width;
 
 	//4 cases based on slope
 	if (m <= -1) {     //(-infinite, -1]
+		//printf("slope <= -1\n");
 		for (x = x_min, y = y_max; y>=y_min && x<=x_max; --y) {
 			pr.x = x;
 			pr.y = y;
 			t = dot_vec2s(sub_vec2s(pr, p1), sub_p2p1) / line_length_squared;
-
 			z = (1 - t) * z1 + t * z2;
+			z += poly_offset;
 			w = (1 - t) * w1 + t * w2;
-
-			// These are constant for the whole perpendicular
-			// I'm pretending the special gap perpendiculars get the
-			// same values for the sake of simplicity
-			c->builtins.gl_FragCoord.z = z;
-			c->builtins.gl_FragCoord.w = 1/w;
-
-			setup_fs_input(t, v1_out, v2_out, w1, w2, provoke);
-			diag = draw_perp_line(-1/m, x-ab.x, y-ab.y, x+ab.x, y+ab.y);
-			if (line_func(&line, x+0.5f, y-1) < 0) {
-				if (diag) {
-					draw_perp_line(-1/m, x-ab.x, y-1-ab.y, x+ab.x, y-1+ab.y);
+			for (float j=x-width/2; j<x+width/2; ++j) {
+				if (CLIPXY_TEST(j, y)) {
+					if (fragdepth_or_discard || fragment_processing(j, y, z)) {
+						SET_VEC4(c->builtins.gl_FragCoord, j, y, z, 1/w);
+						c->builtins.discard = GL_FALSE;
+						c->builtins.gl_FragDepth = z;
+						setup_fs_input(t, v1_out, v2_out, w1, w2, provoke);
+						fragment_shader(c->fs_input, &c->builtins, uniform);
+						if (!c->builtins.discard)
+							draw_pixel(c->builtins.gl_FragColor, j, y, c->builtins.gl_FragDepth, fragdepth_or_discard);
+					}
 				}
-				++x;
 			}
+			if (line_func(&line, x+0.5f, y-1) < 0) //A*(x+0.5f) + B*(y-1) + C < 0)
+				++x;
 		}
 	} else if (m <= 0) {     //(-1, 0]
-		float inv_m = m ? -1/m : INFINITY;
+		//printf("slope = (-1, 0]\n");
 		for (x = x_min, y = y_max; x<=x_max && y>=y_min; ++x) {
 			pr.x = x;
 			pr.y = y;
 			t = dot_vec2s(sub_vec2s(pr, p1), sub_p2p1) / line_length_squared;
 
 			z = (1 - t) * z1 + t * z2;
+			z += poly_offset;
 			w = (1 - t) * w1 + t * w2;
+			for (float j=y-width/2; j<y+width/2; ++j) {
+				if (CLIPXY_TEST(x, j)) {
+					if (fragdepth_or_discard || fragment_processing(x, j, z)) {
 
-			c->builtins.gl_FragCoord.z = z;
-			c->builtins.gl_FragCoord.w = 1/w;
-
-			setup_fs_input(t, v1_out, v2_out, w1, w2, provoke);
-			diag = draw_perp_line(inv_m, x-ab.x, y-ab.y, x+ab.x, y+ab.y);
-			if (line_func(&line, x+1, y-0.5f) > 0) {
-				if (diag) {
-					draw_perp_line(inv_m, x+1-ab.x, y-ab.y, x+1+ab.x, y+ab.y);
+						SET_VEC4(c->builtins.gl_FragCoord, x, j, z, 1/w);
+						c->builtins.discard = GL_FALSE;
+						c->builtins.gl_FragDepth = z;
+						setup_fs_input(t, v1_out, v2_out, w1, w2, provoke);
+						fragment_shader(c->fs_input, &c->builtins, uniform);
+						if (!c->builtins.discard)
+							draw_pixel(c->builtins.gl_FragColor, x, j, c->builtins.gl_FragDepth, fragdepth_or_discard);
+					}
 				}
-				--y;
 			}
+			if (line_func(&line, x+1, y-0.5f) > 0) //A*(x+1) + B*(y-0.5f) + C > 0)
+				--y;
 		}
 	} else if (m <= 1) {     //(0, 1]
+		//printf("slope = (0, 1]\n");
 		for (x = x_min, y = y_min; x <= x_max && y <= y_max; ++x) {
 			pr.x = x;
 			pr.y = y;
 			t = dot_vec2s(sub_vec2s(pr, p1), sub_p2p1) / line_length_squared;
 
 			z = (1 - t) * z1 + t * z2;
+			z += poly_offset;
 			w = (1 - t) * w1 + t * w2;
+			for (float j=y-width/2; j<y+width/2; ++j) {
+				if (CLIPXY_TEST(x, j)) {
+					if (fragdepth_or_discard || fragment_processing(x, j, z)) {
 
-			c->builtins.gl_FragCoord.z = z;
-			c->builtins.gl_FragCoord.w = 1/w;
-
-			setup_fs_input(t, v1_out, v2_out, w1, w2, provoke);
-			diag = draw_perp_line(-1/m, x+ab.x, y+ab.y, x-ab.x, y-ab.y);
-
-			if (line_func(&line, x+1, y+0.5f) < 0) {
-				if (diag) {
-					draw_perp_line(-1/m, x+1+ab.x, y+ab.y, x+1-ab.x, y-ab.y);
+						SET_VEC4(c->builtins.gl_FragCoord, x, j, z, 1/w);
+						c->builtins.discard = GL_FALSE;
+						c->builtins.gl_FragDepth = z;
+						setup_fs_input(t, v1_out, v2_out, w1, w2, provoke);
+						fragment_shader(c->fs_input, &c->builtins, uniform);
+						if (!c->builtins.discard)
+							draw_pixel(c->builtins.gl_FragColor, x, j, c->builtins.gl_FragDepth, fragdepth_or_discard);
+					}
 				}
-				++y;
 			}
+			if (line_func(&line, x+1, y+0.5f) < 0) //A*(x+1) + B*(y+0.5f) + C < 0)
+				++y;
 		}
 
 	} else {    //(1, +infinite)
+		//printf("slope > 1\n");
 		for (x = x_min, y = y_min; y<=y_max && x <= x_max; ++y) {
 			pr.x = x;
 			pr.y = y;
 			t = dot_vec2s(sub_vec2s(pr, p1), sub_p2p1) / line_length_squared;
 
 			z = (1 - t) * z1 + t * z2;
+			z += poly_offset;
 			w = (1 - t) * w1 + t * w2;
+			for (float j=x-width/2; j<x+width/2; ++j) {
+				if (CLIPXY_TEST(j, y)) {
+					if (fragdepth_or_discard || fragment_processing(j, y, z)) {
 
-			c->builtins.gl_FragCoord.z = z;
-			c->builtins.gl_FragCoord.w = 1/w;
-
-			setup_fs_input(t, v1_out, v2_out, w1, w2, provoke);
-			diag = draw_perp_line(-1/m, x+ab.x, y+ab.y, x-ab.x, y-ab.y);
-
-			if (line_func(&line, x+0.5f, y+1) > 0) {
-				if (diag) {
-					draw_perp_line(-1/m, x+ab.x, y+1+ab.y, x-ab.x, y+1-ab.y);
+						SET_VEC4(c->builtins.gl_FragCoord, j, y, z, 1/w);
+						c->builtins.discard = GL_FALSE;
+						c->builtins.gl_FragDepth = z;
+						setup_fs_input(t, v1_out, v2_out, w1, w2, provoke);
+						fragment_shader(c->fs_input, &c->builtins, uniform);
+						if (!c->builtins.discard)
+							draw_pixel(c->builtins.gl_FragColor, j, y, c->builtins.gl_FragDepth, fragdepth_or_discard);
+					}
 				}
+			}
+			if (line_func(&line, x+0.5f, y+1) > 0) //A*(x+0.5f) + B*(y+1) + C > 0)
 				++x;
+		}
+	}
+}
+
+static void draw_thick_line(vec3 hp1, vec3 hp2, float w1, float w2, float* v1_out, float* v2_out, unsigned int provoke, float poly_offset)
+{
+	float tmp;
+	float* tmp_ptr;
+
+	float x1 = hp1.x, x2 = hp2.x, y1 = hp1.y, y2 = hp2.y;
+	float z1 = hp1.z, z2 = hp2.z;
+
+	//always draw from left to right
+	if (x2 < x1) {
+		tmp = x1;
+		x1 = x2;
+		x2 = tmp;
+		tmp = y1;
+		y1 = y2;
+		y2 = tmp;
+
+		tmp = z1;
+		z1 = z2;
+		z2 = tmp;
+
+		tmp = w1;
+		w1 = w2;
+		w2 = tmp;
+
+		tmp_ptr = v1_out;
+		v1_out = v2_out;
+		v2_out = tmp_ptr;
+	}
+
+	float width = c->line_width / 2.0f;
+
+	//calculate slope and implicit line parameters once
+	float m = (y2-y1)/(x2-x1);
+	Line line = make_Line(x1, y1, x2, y2);
+	normalize_line(&line);
+
+	vec2 p1 = { x1, y1 };
+	vec2 p2 = { x2, y2 };
+	vec2 v12 = sub_vec2s(p2, p1);
+	vec2 v1r, v2r, pr;
+
+	float dot_1212 = dot_vec2s(v12, v12);
+
+	float x_min, x_max, y_min, y_max;
+
+	x_min = p1.x - width;
+	x_max = p2.x + width;
+	if (m <= 0) {
+		y_min = p2.y - width;
+		y_max = p1.y + width;
+	} else {
+		y_min = p1.y - width;
+		y_max = p2.y + width;
+	}
+
+	// clipping/scissoring against side planes here
+	x_min = MAX(c->lx, x_min);
+	x_max = MIN(c->ux, x_max);
+	y_min = MAX(c->ly, y_min);
+	y_max = MIN(c->uy, y_max);
+	// end clipping
+
+	y_min = floor(y_min) + 0.5f;
+	x_min = floor(x_min) + 0.5f;
+	float x_mino = x_min;
+	float x_maxo = x_max;
+
+
+	frag_func fragment_shader = c->programs.a[c->cur_program].fragment_shader;
+	void* uniform = c->programs.a[c->cur_program].uniform;
+	int fragdepth_or_discard = c->programs.a[c->cur_program].fragdepth_or_discard;
+
+	float t, x, y, z, w, e, dist;
+	float width2 = width*width;
+
+	// calculate x_max or just use last logic?
+	//int last = 0;
+
+	//printf("%f %f %f %f   =\n", i_x1, i_y1, i_x2, i_y2);
+	//printf("%f %f %f %f   x_min etc\n", x_min, x_max, y_min, y_max);
+
+	// TODO should be done for each fragment, after poly_offset is added?
+	z1 = rsw_mapf(z1, -1.0f, 1.0f, c->depth_range_near, c->depth_range_far);
+	z2 = rsw_mapf(z2, -1.0f, 1.0f, c->depth_range_near, c->depth_range_far);
+
+	for (y = y_min; y < y_max; ++y) {
+		pr.y = y;
+		//last = GL_FALSE;
+
+		// could also check fabsf(line.A) > epsilon
+		if (fabsf(m) > 0.0001f) {
+			x_min = (-width - line.C - line.B*y)/line.A;
+			x_max = (width - line.C - line.B*y)/line.A;
+			if (x_min > x_max) {
+				tmp = x_min;
+				x_min = x_max;
+				x_max = tmp;
+			}
+			x_min = MAX(c->lx, x_min);
+			x_min = floorf(x_min) + 0.5f;
+			x_max = MIN(c->ux, x_max);
+			//printf("%f %f   x_min etc\n", x_min, x_max);
+		} else {
+			x_min = x_mino;
+			x_max = x_maxo;
+		}
+		for (x = x_min; x < x_max; ++x) {
+			pr.x = x;
+			v1r = sub_vec2s(pr, p1);
+			v2r = sub_vec2s(pr, p2);
+			e = dot_vec2s(v1r, v12);
+
+			// c lies past the ends of the segment v12
+			if (e <= 0.0f || e >= dot_1212) {
+				continue;
+			}
+
+			// can do this because we normalized the line equation
+			// TODO square or fabsf?
+			dist = line_func(&line, pr.x, pr.y);
+			//if (dist*dist < width2) {
+			if (fabsf(dist) < width) {
+				t = e / dot_1212;
+
+				z = (1 - t) * z1 + t * z2;
+				z += poly_offset;
+				if (fragdepth_or_discard || fragment_processing(x, y, z)) {
+					w = (1 - t) * w1 + t * w2;
+
+					SET_VEC4(c->builtins.gl_FragCoord, x, y, z, 1/w);
+					c->builtins.discard = GL_FALSE;
+					c->builtins.gl_FragDepth = z;
+					setup_fs_input(t, v1_out, v2_out, w1, w2, provoke);
+
+					fragment_shader(c->fs_input, &c->builtins, uniform);
+					if (!c->builtins.discard)
+						draw_pixel(c->builtins.gl_FragColor, x, y, c->builtins.gl_FragDepth, fragdepth_or_discard);
+				}
+			//	last = GL_TRUE;
+			//} else if (last) {
+			//	break; // we have passed the right edge of the line on this row
 			}
 		}
 	}
@@ -9006,9 +9186,12 @@ static void draw_triangle(glVertex* v0, glVertex* v1, glVertex* v2, unsigned int
 	// for multiple triangles in STRIP and FAN
 	v0->edge_flag = v1->edge_flag = v2->edge_flag = 1;
 
-	v0->clip_code &= CLIPZ_MASK;
-	v1->clip_code &= CLIPZ_MASK;
-	v2->clip_code &= CLIPZ_MASK;
+	// TODO figure out how to remove XY clipping while still
+	// handling weird edge cases like LearnPortableGL's skybox
+	// case
+	//v0->clip_code &= CLIPZ_MASK;
+	//v1->clip_code &= CLIPZ_MASK;
+	//v2->clip_code &= CLIPZ_MASK;
 	c_or = v0->clip_code | v1->clip_code | v2->clip_code;
 	if (c_or == 0) {
 		draw_triangle_final(v0, v1, v2, provoke);
@@ -9092,20 +9275,18 @@ static float (*clip_proc[6])(vec4 *, vec4 *, vec4 *) = {
 static inline void update_clip_pt(glVertex *q, glVertex *v0, glVertex *v1, float t)
 {
 	for (int i=0; i<c->vs_output.size; ++i) {
-		//why is this correct for both PGL_SMOOTH and PGL_NOPERSPECTIVE?
+		// this is correct for both smooth and noperspective because
+		// it's in clip space, pre-perspective divide
+		//
+		// https://www.khronos.org/opengl/wiki/Vertex_Post-Processing#Clipping
 		q->vs_out[i] = v0->vs_out[i] + (v1->vs_out[i] - v0->vs_out[i]) * t;
 
 		//PGL_FLAT should be handled indirectly by the provoke index
 		//nothing to do here unless I change that
 	}
 
-	q->clip_code = gl_clipcode(q->clip_space) & CLIPZ_MASK;
-	/*
-	 * this is done in draw_triangle currently ...
-	q->screen_space = mult_mat4_vec4(c->vp_mat, q->clip_space);
-	if (q->clip_code == 0)
-		q->screen_space = mult_mat4_vec4(c->vp_mat, q->clip_space);
-		*/
+	q->clip_code = gl_clipcode(q->clip_space);
+	//q->clip_code = gl_clipcode(q->clip_space) & CLIPZ_MASK;
 }
 
 
@@ -9148,13 +9329,13 @@ static void draw_triangle_clip(glVertex* v0, glVertex* v1, glVertex* v2, unsigne
 		}
 
 		/* find the next direction to clip */
-		// Changed 6 to 2 to only clip z planes
-		while (clip_bit < 2 && (c_or & (1 << clip_bit)) == 0)  {
+		// TODO only clip z planes or only near
+		while (clip_bit < 6 && (c_or & (1 << clip_bit)) == 0)  {
 			++clip_bit;
 		}
 
 		/* this test can be true only in case of rounding errors */
-		if (clip_bit == 2) {
+		if (clip_bit == 6) {
 #if 1
 			printf("Clipping error:\n");
 			print_vec4(v0->clip_space, "\n");
@@ -9260,12 +9441,16 @@ static void draw_triangle_line(glVertex* v0, glVertex* v1,  glVertex* v2, unsign
 		if (v2->edge_flag)
 			draw_line_shader(hp2, hp0, w2, w0, v2->vs_out, v0->vs_out, provoke, poly_offset);
 	} else {
-		if (v0->edge_flag)
-			draw_thick_line_shader(s0, s1, v0->vs_out, v1->vs_out, provoke);
-		if (v1->edge_flag)
-			draw_thick_line_shader(s1, s2, v1->vs_out, v2->vs_out, provoke);
-		if (v2->edge_flag)
-			draw_thick_line_shader(s2, s0, v2->vs_out, v0->vs_out, provoke);
+
+		if (v0->edge_flag) {
+			DRAW_THICK_LINE(hp0, hp1, w0, w1, v0->vs_out, v1->vs_out, provoke, poly_offset);
+		}
+		if (v1->edge_flag) {
+			DRAW_THICK_LINE(hp1, hp2, w1, w2, v1->vs_out, v2->vs_out, provoke, poly_offset);
+		}
+		if (v2->edge_flag) {
+			DRAW_THICK_LINE(hp2, hp0, w2, w0, v2->vs_out, v0->vs_out, provoke, poly_offset);
+		}
 	}
 }
 
@@ -9394,7 +9579,7 @@ static void draw_triangle_fill(glVertex* v0, glVertex* v1, glVertex* v2, unsigne
 					z = alpha * hp0.z + beta * hp1.z + gamma * hp2.z;
 
 					z += poly_offset;
-					z = MAP(z, -1.0f, 1.0f, c->depth_range_near, c->depth_range_far); //TODO move out (ie can I map hp1.z etc.)?
+					z = rsw_mapf(z, -1.0f, 1.0f, c->depth_range_near, c->depth_range_far); //TODO move out (ie can I map hp1.z etc.)?
 
 					// early testing if shader doesn't use fragdepth or discard
 					if (!fragdepth_or_discard && !fragment_processing(x, y, z)) {
@@ -9806,10 +9991,10 @@ static void draw_pixel(vec4 cf, int x, int y, float z, int do_frag_processing)
 		//TODO clamp in blend_pixel?  return the vec4 and clamp?
 		src_color = blend_pixel(cf, Color_to_vec4(dest_color));
 	} else {
-		cf.x = clampf_01(cf.x);
-		cf.y = clampf_01(cf.y);
-		cf.z = clampf_01(cf.z);
-		cf.w = clampf_01(cf.w);
+		cf.x = clamp_01(cf.x);
+		cf.y = clamp_01(cf.y);
+		cf.z = clamp_01(cf.z);
+		cf.w = clamp_01(cf.w);
 		src_color = vec4_to_Color(cf);
 	}
 	//this line needed the negation in the viewport matrix
@@ -10024,7 +10209,7 @@ int init_glContext(glContext* context, u32** back, int w, int h, int bitdepth, u
 	cvec_glTexture(&c->textures, 0, 1);
 	cvec_glVertex(&c->glverts, 0, 10);
 
-	//TODO might as well just set it to MAX_VERTICES * MAX_OUTPUT_COMPONENTS
+	//TODO might as well just set it to PGL_MAX_VERTICES * MAX_OUTPUT_COMPONENTS
 	cvec_float(&c->vs_output.output_buf, 0, 0);
 
 
@@ -11421,10 +11606,10 @@ void glViewport(int x, int y, GLsizei width, GLsizei height)
 
 void glClearColor(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)
 {
-	red = clampf_01(red);
-	green = clampf_01(green);
-	blue = clampf_01(blue);
-	alpha = clampf_01(alpha);
+	red = clamp_01(red);
+	green = clamp_01(green);
+	blue = clamp_01(blue);
+	alpha = clamp_01(alpha);
 
 	vec4 tmp = { red, green, blue, alpha };
 	c->clear_color = vec4_to_Color(tmp);
@@ -11432,7 +11617,7 @@ void glClearColor(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)
 
 void glClearDepth(GLclampf depth)
 {
-	c->clear_depth = clampf_01(depth);
+	c->clear_depth = clamp_01(depth);
 }
 
 void glDepthFunc(GLenum func)
@@ -11449,8 +11634,8 @@ void glDepthFunc(GLenum func)
 
 void glDepthRange(GLclampf nearVal, GLclampf farVal)
 {
-	c->depth_range_near = clampf_01(nearVal);
-	c->depth_range_far = clampf_01(farVal);
+	c->depth_range_near = clamp_01(nearVal);
+	c->depth_range_far = clamp_01(farVal);
 }
 
 void glDepthMask(GLboolean flag)
@@ -11638,6 +11823,15 @@ GLboolean glIsEnabled(GLenum cap)
 	}
 
 	return GL_FALSE;
+}
+
+GLboolean glIsProgram(GLuint program)
+{
+	if (!program || program >= c->programs.size || c->programs.a[program].deleted) {
+		return GL_FALSE;
+	}
+
+	return GL_TRUE;
 }
 
 void glGetBooleanv(GLenum pname, GLboolean* data)
@@ -11939,7 +12133,7 @@ void glUseProgram(GLuint program)
 	}
 
 	c->vs_output.size = c->programs.a[program].vs_output_size;
-	cvec_reserve_float(&c->vs_output.output_buf, c->vs_output.size * MAX_VERTICES);
+	cvec_reserve_float(&c->vs_output.output_buf, c->vs_output.size * PGL_MAX_VERTICES);
 	c->vs_output.interpolation = c->programs.a[program].interpolation;
 	c->fragdepth_or_discard = c->programs.a[program].fragdepth_or_discard;
 
@@ -12015,7 +12209,7 @@ void glBlendEquationSeparate(GLenum modeRGB, GLenum modeAlpha)
 
 void glBlendColor(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)
 {
-	SET_VEC4(c->blend_color, clampf_01(red), clampf_01(green), clampf_01(blue), clampf_01(alpha));
+	SET_VEC4(c->blend_color, clamp_01(red), clamp_01(green), clamp_01(blue), clamp_01(alpha));
 }
 
 void glLogicOp(GLenum opcode)
@@ -12128,9 +12322,9 @@ void glStencilOp(GLenum sfail, GLenum dpfail, GLenum dppass)
 	//
 	// Also, how best to check when the enums aren't contiguous?  empty switch?
 	// manually checking all enums?
-	if ((sfail < GL_INVERT || sfail > GL_DECR_WRAP) && sfail != GL_ZERO ||
-	    (dpfail < GL_INVERT || dpfail > GL_DECR_WRAP) && sfail != GL_ZERO ||
-	    (dppass < GL_INVERT || dppass > GL_DECR_WRAP) && sfail != GL_ZERO) {
+	if (((sfail < GL_INVERT || sfail > GL_DECR_WRAP) && sfail != GL_ZERO) ||
+	    ((dpfail < GL_INVERT || dpfail > GL_DECR_WRAP) && dpfail != GL_ZERO) ||
+	    ((dppass < GL_INVERT || dppass > GL_DECR_WRAP) && dppass != GL_ZERO)) {
 		if (!c->error)
 			c->error = GL_INVALID_ENUM;
 
@@ -12160,9 +12354,9 @@ void glStencilOpSeparate(GLenum face, GLenum sfail, GLenum dpfail, GLenum dppass
 		return;
 	}
 
-	if ((sfail < GL_INVERT || sfail > GL_DECR_WRAP) && sfail != GL_ZERO ||
-	    (dpfail < GL_INVERT || dpfail > GL_DECR_WRAP) && sfail != GL_ZERO ||
-	    (dppass < GL_INVERT || dppass > GL_DECR_WRAP) && sfail != GL_ZERO) {
+	if (((sfail < GL_INVERT || sfail > GL_DECR_WRAP) && sfail != GL_ZERO) ||
+	    ((dpfail < GL_INVERT || dpfail > GL_DECR_WRAP) && dpfail != GL_ZERO) ||
+	    ((dppass < GL_INVERT || dppass > GL_DECR_WRAP) && dppass != GL_ZERO)) {
 		if (!c->error)
 			c->error = GL_INVALID_ENUM;
 
@@ -12359,6 +12553,7 @@ void glUniformMatrix4x3fv(GLint location, GLsizei count, GLboolean transpose, co
  *  GLSL(ish) functions
  *************************************/
 
+/*
 float clampf_01(float f)
 {
 	if (f < 0.0f) return 0.0f;
@@ -12379,6 +12574,7 @@ int clampi(int i, int min, int max)
 	if (i > max) return max;
 	return i;
 }
+*/
 
 
 #define imod(a, b) (a) - (b) * ((a)/(b))
@@ -12898,7 +13094,7 @@ void pglSetInterp(GLsizei n, GLenum* interpolation)
 	c->vs_output.size = n;
 
 	memcpy(c->programs.a[c->cur_program].interpolation, interpolation, n*sizeof(GLenum));
-	cvec_reserve_float(&c->vs_output.output_buf, n * MAX_VERTICES);
+	cvec_reserve_float(&c->vs_output.output_buf, n * PGL_MAX_VERTICES);
 
 	//vs_output.interpolation would be already pointing at current program's array
 	//unless the programs array was realloced since the last glUseProgram because
@@ -13555,6 +13751,83 @@ void put_wide_line2(Color the_color, float width, float x1, float y1, float x2, 
 	}
 }
 
+/*
+// At least until I can decide how to handle mix_vec4 even when the user defines EXCLUDE_GLSL
+void put_wide_line3(Color color1, Color color2, float width, float x1, float y1, float x2, float y2)
+{
+	vec2 a = { x1, y1 };
+	vec2 b = { x2, y2 };
+	vec2 tmp;
+	Color tmpc;
+
+	if (x2 < x1) {
+		tmp = a;
+		a = b;
+		b = tmp;
+		tmpc = color1;
+		color1 = color2;
+		color2 = tmpc;
+	}
+
+	vec4 c1 = Color_to_vec4(color1);
+	vec4 c2 = Color_to_vec4(color2);
+
+	// need half the width to calculate
+	width /= 2.0f;
+
+	float m = (y2-y1)/(x2-x1);
+	Line line = make_Line(x1, y1, x2, y2);
+	normalize_line(&line);
+	vec2 c;
+
+	vec2 ab = sub_vec2s(b, a);
+	vec2 ac, bc;
+
+	float dot_abab = dot_vec2s(ab, ab);
+
+	float x_min = floor(a.x - width) + 0.5f;
+	float x_max = floor(b.x + width) + 0.5f;
+	float y_min, y_max;
+	if (m <= 0) {
+		y_min = floor(b.y - width) + 0.5f;
+		y_max = floor(a.y + width) + 0.5f;
+	} else {
+		y_min = floor(a.y - width) + 0.5f;
+		y_max = floor(b.y + width) + 0.5f;
+	}
+
+	float x, y, e, dist, t;
+	float w2 = width*width;
+	//int last = 1;
+	Color out_c;
+
+	for (y = y_min; y <= y_max; ++y) {
+		c.y = y;
+		for (x = x_min; x <= x_max; x++) {
+			// TODO optimize
+			c.x = x;
+			ac = sub_vec2s(c, a);
+			bc = sub_vec2s(c, b);
+			e = dot_vec2s(ac, ab);
+
+			// c lies past the ends of the segment ab
+			if (e <= 0.0f || e >= dot_abab) {
+				continue;
+			}
+
+			// can do this because we normalized the line equation
+			// TODO square or fabsf?
+			dist = line_func(&line, c.x, c.y);
+			if (dist*dist < w2) {
+				t = e / dot_abab;
+				out_c = vec4_to_Color(mix_vec4(c1, c2, t));
+				put_pixel(out_c, x, y);
+			}
+		}
+	}
+}
+*/
+
 //Should I have it take a glFramebuffer as paramater?
 int put_line(Color the_color, float x1, float y1, float x2, float y2)
 {
@@ -13951,7 +14224,7 @@ void pgl_init_std_shaders(GLuint programs[PGL_NUM_SHADERS])
 #undef CVECTOR_float_IMPLEMENTATION
 #endif
 
-#ifdef PGL_MANGLE_TYPES
+#ifdef PGL_PREFIX_TYPES
 #undef vec2
 #undef vec3
 #undef vec4
@@ -13970,4 +14243,23 @@ void pgl_init_std_shaders(GLuint programs[PGL_NUM_SHADERS])
 #undef Color
 #undef Line
 #undef Plane
+#endif
+
+#ifdef PGL_PREFIX_GLSL
+#undef mix
+#undef radians
+#undef degrees
+#undef smoothstep
+#undef clamp_01
+#undef clamp
+#undef clampi
+
+#elif defined(PGL_SUFFIX_GLSL)
+#undef mix
+#undef radians
+#undef degrees
+#undef smoothstep
+#undef clamp_01
+#undef clamp
+#undef clampi
 #endif

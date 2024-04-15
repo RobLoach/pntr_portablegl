@@ -96,7 +96,7 @@ if (SDL AND NOT EMSCRIPTEN)
     set(SDL_INSTALL_TESTS FALSE)
     find_package(SDL2 REQUIRED)
     set(SDL2_LIBRARIES SDL2-static)
-    #set(SDL2_LIBRARIES SDL2::SDL2 SDL2::SDL2main)
+    set(SDL2_LIBRARIES SDL2::SDL2 SDL2::SDL2main)
 
     # SDL_mixer
     # set(SDL2MIXER_VORBIS STB)
@@ -127,7 +127,7 @@ if (SDL AND NOT EMSCRIPTEN)
 
     target_link_libraries(${project_name_sdl} PUBLIC
         ${LIBRARIES}
-        # ${SDL2_LIBRARIES}
+        ${SDL2_LIBRARIES}
     )
     set_property(TARGET ${project_name_sdl} PROPERTY C_STANDARD 99)
 endif()
