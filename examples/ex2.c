@@ -5,7 +5,7 @@
 #include "../pntr_portablegl.h"
 
 typedef struct AppData {
-    glContext* the_Context;
+    glContext* context;
 } AppData;
 
 void smooth_vs(float* vs_output, pgl_vec4* vertex_attribs, Shader_Builtins* builtins, void* uniforms);
@@ -16,8 +16,7 @@ bool Init(pntr_app* app) {
     pntr_app_set_userdata(app, appData);
 
     // PortableGL setup
-    appData->the_Context = pntr_init_glContext(app->screen);
-	set_glContext(appData->the_Context);
+    appData->context = pntr_load_glContext(app->screen);
 
     // Set up the OpenGL state
 	GLenum smooth[4] = { PGL_SMOOTH4 };
@@ -63,7 +62,7 @@ void Close(pntr_app* app) {
     AppData* appData = (AppData*)pntr_app_userdata(app);
 
 	// PortableGL cleanup
-	free_glContext(appData->the_Context);
+	free_glContext(appData->context);
 
     pntr_unload_memory(appData);
 }

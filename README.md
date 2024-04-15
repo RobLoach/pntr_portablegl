@@ -2,16 +2,24 @@
 
 Use OpenGL 3-ish with [PortableGL](https://github.com/rswinkle/PortableGL) in [pntr](https://github.com/robloach/pntr).
 
-## Examples
+## Example
 
 [![Example 2 Screenshot](examples/ex2.png)](examples/ex2.c)
+
+## API
+
+``` c
+glContext* pntr_load_glContext(pntr_image* dst);
+```
+
+See [PortableGL](https://github.com/rswinkle/PortableGL) for how to use the `glContext`.
 
 ## License
 
 Unless stated otherwise, all works are:
 
-- Copyright (c) 2023 [Rob Loach](https://robloach.net)
+- Copyright (c) 2024 [Rob Loach](https://robloach.net)
 
 ... and licensed under:
 
-- [zlib License](LICENSE)
+- [MIT License](LICENSE)

@@ -6,7 +6,7 @@
 #endif  // PGL_MALLOC
 
 #ifndef PGL_REALLOC
-#define PGL_REALLOC(p, sz)  PNTR_REALLOC(p, sz)
+#define PGL_REALLOC(p, sz)  PNTR_REALLOC((p), (sz))
 #endif  // PGL_REALLOC
 
 #ifndef PGL_FREE
@@ -26,14 +26,28 @@
 
 #include PNTR_PORTABLEGL_H
 
+#ifndef PNTR_PORTABLEGL_API
+#define PNTR_PORTABLEGL_API PNTR_API
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Initialize the OpenGL context for the given destination image.
  *
  * @param dst The destination image to initialize the OpenGL context for.
  *
  * @return The initialized OpenGL context, or NULL on failure.
+ *
+ * @see init_glContext()
  */
-glContext* pntr_init_glContext(pntr_image* dst);
+PNTR_PORTABLEGL_API glContext* pntr_load_glContext(pntr_image* dst);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // PNTR_PORTABLEGL_H__
 
@@ -44,7 +58,11 @@ glContext* pntr_init_glContext(pntr_image* dst);
 #define PORTABLEGL_IMPLEMENTATION
 #include PNTR_PORTABLEGL_H
 
-glContext* pntr_init_glContext(pntr_image* dst) {
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+PNTR_PORTABLEGL_API glContext* pntr_load_glContext(pntr_image* dst) {
     if (dst == NULL) {
         return NULL;
     }
@@ -53,13 +71,14 @@ glContext* pntr_init_glContext(pntr_image* dst) {
         return NULL;
     }
 
-    glContext* context = PNTR_MALLOC(sizeof(glContext));
+    // Create the memory for the glContext.
+    glContext* context = (glContext*)PNTR_MALLOC(sizeof(glContext));
     if (context == NULL) {
         return NULL;
     }
 
     #ifdef PNTR_PIXELFORMAT_RGBA
-        // TODO: PortableGL - Fix the RGBA mask?
+        // TODO: PortableGL - Fix the RGBA alpha mask?
         u32 Rmask = 0x000000FF;
         u32 Gmask = 0x0000FF00;
         u32 Bmask = 0x00FF0000;
@@ -78,14 +97,22 @@ glContext* pntr_init_glContext(pntr_image* dst) {
         #endif
     #endif
 
+    // Create the context.
     u32* backbuffer = (u32*)dst->data;
     if (!init_glContext(context, &backbuffer, dst->width, dst->height, 32, Rmask, Gmask, Bmask, Amask)) {
         PNTR_FREE(context);
         return NULL;
     }
 
+    // Set the active context.
+    set_glContext(context);
+
     return context;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // PNTR_PORTABLEGL_IMPLEMENTATION_ONCE
 #endif  // PNTR_PORTABLEGL_IMPLEMENTATION
