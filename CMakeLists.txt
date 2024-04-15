@@ -8,14 +8,14 @@ project(pntr_portablegl
 
 # Targets
 option(SDL "Build SDL" TRUE)
-option(RAYLIB "Build raylib" FALSE)
+option(RAYLIB "Build raylib" TRUE)
 option(LIBRETRO "Build libretro" FALSE)
 option(CLI "Build CLI" FALSE)
 option(WEB "Build Web" FALSE)
 
 # Sources
 set(SOURCES
-    examples/main.c
+    examples/ex2.c
 )
 
 # Libraries
