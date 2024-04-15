@@ -44,6 +44,7 @@ extern "C" {
  * @see init_glContext()
  */
 PNTR_PORTABLEGL_API glContext* pntr_load_glContext(pntr_image* dst);
+PNTR_PORTABLEGL_API void pntr_unload_glContext(glContext* context);
 
 #ifdef __cplusplus
 }
@@ -108,6 +109,15 @@ PNTR_PORTABLEGL_API glContext* pntr_load_glContext(pntr_image* dst) {
     set_glContext(context);
 
     return context;
+}
+
+PNTR_PORTABLEGL_API void pntr_unload_glContext(glContext* context) {
+    if (context == NULL) {
+        return;
+    }
+
+    free_glContext(context);
+    PNTR_FREE(context);
 }
 
 #ifdef __cplusplus

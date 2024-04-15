@@ -62,7 +62,7 @@ void Close(pntr_app* app) {
     AppData* appData = (AppData*)pntr_app_userdata(app);
 
 	// PortableGL cleanup
-	free_glContext(appData->context);
+	pntr_unload_glContext(appData->context);
 
     pntr_unload_memory(appData);
 }

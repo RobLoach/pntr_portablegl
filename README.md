@@ -10,6 +10,7 @@ Use OpenGL 3-ish with [PortableGL](https://github.com/rswinkle/PortableGL) in [p
 
 ``` c
 glContext* pntr_load_glContext(pntr_image* dst);
+void pntr_unload_glContext(glContext* context);
 ```
 
 See [PortableGL](https://github.com/rswinkle/PortableGL) for how to use the `glContext`.
