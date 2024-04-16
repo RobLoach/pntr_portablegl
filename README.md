@@ -1,6 +1,6 @@
 # pntr_portablegl
 
-Use OpenGL 3-ish with [PortableGL](https://github.com/rswinkle/PortableGL) in [pntr](https://github.com/robloach/pntr).
+Use the OpenGL-ish API, [PortableGL](https://github.com/rswinkle/PortableGL), from [pntr](https://github.com/robloach/pntr).
 
 ## Example
 
