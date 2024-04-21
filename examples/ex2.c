@@ -51,9 +51,15 @@ bool Init(pntr_app* app) {
 bool Update(pntr_app* app, pntr_image* screen) {
     AppData* appData = (AppData*)pntr_app_userdata(app);
 
+    pntr_clear_background(screen, PNTR_WHITE);
+
     // Draw the triangle
     glClear(GL_COLOR_BUFFER_BIT);
     glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    pntr_draw_rectangle_fill(screen, 50, 50, 50, 50, pntr_new_color(255, 0, 0, 255));
+    pntr_draw_rectangle_fill(screen, 100, 50, 50, 50, pntr_new_color(0, 255, 0, 255));
+    pntr_draw_rectangle_fill(screen, 50, 100, 50, 50, pntr_new_color(0, 0, 255, 255));
 
     return true;
 }
