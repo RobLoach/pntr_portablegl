@@ -79,7 +79,6 @@ PNTR_PORTABLEGL_API glContext* pntr_load_glContext(pntr_image* dst) {
     }
 
     #ifdef PNTR_PIXELFORMAT_RGBA
-        // TODO: PortableGL - Fix the RGBA alpha mask?
         u32 Rmask = 0x000000FF;
         u32 Gmask = 0x0000FF00;
         u32 Bmask = 0x00FF0000;
