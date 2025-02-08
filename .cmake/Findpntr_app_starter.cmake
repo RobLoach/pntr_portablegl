@@ -71,67 +71,6 @@ if (CLI AND NOT EMSCRIPTEN)
     set_property(TARGET ${project_name_cli} PROPERTY C_STANDARD 99)
 endif()
 
-if (SDL AND NOT EMSCRIPTEN)
-    set(project_name_sdl ${PROJECT_NAME}_sdl)
-    add_executable(${project_name_sdl}
-        ${SOURCES}
-    )
-
-    target_compile_definitions(${project_name_sdl} PUBLIC
-        PNTR_APP_SDL
-        #PNTR_APP_SDL_MIXER
-    )
-
-    # SDL
-    set(SDL_SHARED FALSE)
-    set(SDL2_SHARED FALSE)
-    set(SDL_STATIC TRUE)
-    set(SDL_TEST FALSE)
-    set(SDL_TESTS FALSE)
-    set(SDL_TEST_LIBRARY FALSE)
-    set(SDL_TESTS_TIMEOUT_MULTIPLIER FALSE)
-    set(INTERFACE_SDL2_SHARED false)
-    set(SDL2_DISABLE_UNINSTALL TRUE)
-    set(SDL2_DISABLE_INSTALL TRUE)
-    set(SDL_INSTALL_TESTS FALSE)
-    find_package(SDL2 REQUIRED)
-    set(SDL2_LIBRARIES SDL2-static)
-    set(SDL2_LIBRARIES SDL2::SDL2 SDL2::SDL2main)
-
-    # SDL_mixer
-    # set(SDL2MIXER_VORBIS STB)
-    # set(SDL2MIXER_INSTALL OFF)
-    # set(SDL2MIXER_DEPS_SHARED OFF)
-    # set(SDL2MIXER_VENDORED OFF)
-    # set(SDL2MIXER_SAMPLES OFF)
-    # set(SDL2MIXER_CMD OFF)
-    # set(SDL2MIXER_FLAC OFF)
-    # set(SDL2MIXER_MOD OFF)
-    # set(SDL2MIXER_MP3 OFF)
-    # set(SDL2MIXER_MIDI_NATIVE OFF)
-    # set(SDL2MIXER_OPUS OFF)
-    # set(SDL2MIXER_OPUS_SHARED OFF)
-    # set(SDL2MIXER_MIDI_FLUIDSYNTH OFF)
-    # set(SDL2MIXER_MP3_MPG123 OFF)
-    # set(SDL2MIXER_MP3_DRMP3 OFF)
-    # set(SDL2MIXER_MOD_XMP OFF)
-    # set(SDL2MIXER_MOD_MODPLUG OFF)
-    # set(SDL2MIXER_FLAC_DRFLAC OFF)
-    # set(SDL2MIXER_FLAC_LIBFLAC OFF)
-    # set(SDL2MIXER_VORBIS_VORBISFILE OFF)
-    # set(SDL2MIXER_SAMPLES_INSTALL OFF)
-    # set(SDL2MIXER_BUILD_SHARED_LIBS OFF)
-    # find_package(SDL2_mixer REQUIRED)
-    # set(SDL2_LIBRARIES ${SDL2_LIBRARIES} SDL2_mixer::SDL2_mixer-static)
-    #set(SDL2_LIBRARIES ${SDL2_LIBRARIES} SDL2_mixer)
-
-    target_link_libraries(${project_name_sdl} PUBLIC
-        ${LIBRARIES}
-        ${SDL2_LIBRARIES}
-    )
-    set_property(TARGET ${project_name_sdl} PROPERTY C_STANDARD 99)
-endif()
-
 if (LIBRETRO AND NOT EMSCRIPTEN)
     find_package(libretrocommon REQUIRED)
     find_package(libretrodeps REQUIRED)
