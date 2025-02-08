@@ -21,7 +21,7 @@
 #define PGL_PREFIX_TYPES
 
 #ifndef PNTR_PORTABLEGL_H
-#define PNTR_PORTABLEGL_H "./vendor/portablegl.h"
+#define PNTR_PORTABLEGL_H "./vendor/portablegl/portablegl.h"
 #endif
 
 #include PNTR_PORTABLEGL_H
@@ -64,11 +64,7 @@ extern "C" {
 #endif
 
 PNTR_PORTABLEGL_API glContext* pntr_load_glContext(pntr_image* dst) {
-    if (dst == NULL) {
-        return NULL;
-    }
-
-    if (dst->subimage) {
+    if (dst == NULL || dst->subimage) {
         return NULL;
     }
 

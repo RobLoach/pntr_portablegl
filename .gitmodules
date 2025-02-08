@@ -1,0 +1,3 @@
+[submodule "vendor/portablegl"]
+	path = vendor/portablegl
+	url = https://github.com/rswinkle/PortableGL.git
