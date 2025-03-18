@@ -44,7 +44,22 @@ extern "C" {
  * @see init_glContext()
  */
 PNTR_PORTABLEGL_API glContext* pntr_load_glContext(pntr_image* dst);
+
+/**
+ * Unload the given OpenGL context.
+ *
+ * @param context The context to unload.
+ *
+ * @see free_glContext()
+ */
 PNTR_PORTABLEGL_API void pntr_unload_glContext(glContext* context);
+
+/**
+ * Load the given pntr_image to an OpenGL texture.
+ *
+ * @param image The image to load into the OpenGL context.
+ */
+PNTR_PORTABLEGL_API GLuint pntr_portablegl_glGenTexture(pntr_image* image);
 
 #ifdef __cplusplus
 }
@@ -113,6 +128,35 @@ PNTR_PORTABLEGL_API void pntr_unload_glContext(glContext* context) {
 
     free_glContext(context);
     PNTR_FREE(context);
+}
+
+PNTR_PORTABLEGL_API GLuint pntr_portablegl_glGenTexture(pntr_image* image) {
+    // Build the data for the GL texture.
+    void* data = pntr_image_to_pixelformat(image, NULL, PNTR_PIXELFORMAT_RGBA8888);
+    if (data == NULL) {
+        return 0;
+    }
+
+    GLuint texture;
+    glGenTextures(1, &texture);
+    if (texture == 0) {
+        pntr_unload_memory(data);
+        return 0;
+    }
+
+    // Prepare the texture
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // Load the data into the texture.
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image->width, image->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    pntr_unload_memory(data);
+
+    return texture;
 }
 
 #ifdef __cplusplus
