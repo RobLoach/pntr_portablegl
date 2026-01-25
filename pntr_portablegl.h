@@ -56,6 +56,16 @@ PNTR_PORTABLEGL_API void pntr_unload_glContext(glContext* context);
 #ifndef PNTR_PORTABLEGL_IMPLEMENTATION_ONCE
 #define PNTR_PORTABLEGL_IMPLEMENTATION_ONCE
 
+#ifdef PNTR_PIXELFORMAT_RGBA
+    // Default
+#elif defined(PNTR_PIXELFORMAT_ARGB)
+    #if defined(SDL_BYTEORDER) && SDL_BYTEORDER == SDL_BIG_ENDIAN
+        #define PGL_RGBA32
+    #else
+        #define PGL_ARGB32
+    #endif
+#endif
+
 #define PORTABLEGL_IMPLEMENTATION
 #include PNTR_PORTABLEGL_H
 
@@ -74,28 +84,9 @@ PNTR_PORTABLEGL_API glContext* pntr_load_glContext(pntr_image* dst) {
         return NULL;
     }
 
-    #ifdef PNTR_PIXELFORMAT_RGBA
-        u32 Rmask = 0x000000FF;
-        u32 Gmask = 0x0000FF00;
-        u32 Bmask = 0x00FF0000;
-        u32 Amask = 0xFF000000;
-    #elif defined(PNTR_PIXELFORMAT_ARGB)
-        #if defined(SDL_BYTEORDER) && SDL_BYTEORDER == SDL_BIG_ENDIAN
-            u32 Rmask = 0xFF000000;
-            u32 Gmask = 0x00FF0000;
-            u32 Bmask = 0x0000FF00;
-            u32 Amask = 0x000000FF;
-        #else
-            u32 Rmask = 0x00FF0000;
-            u32 Gmask = 0x0000FF00;
-            u32 Bmask = 0x000000FF;
-            u32 Amask = 0xFF000000;
-        #endif
-    #endif
-
     // Create the context.
     u32* backbuffer = (u32*)dst->data;
-    if (!init_glContext(context, &backbuffer, dst->width, dst->height, 32, Rmask, Gmask, Bmask, Amask)) {
+    if (!init_glContext(context, &backbuffer, dst->width, dst->height)) {
         PNTR_FREE(context);
         return NULL;
     }
