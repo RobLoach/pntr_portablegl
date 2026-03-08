@@ -76,7 +76,7 @@ void smooth_vs(float* vs_output, pgl_vec4* vertex_attribs, Shader_Builtins* buil
 
 void smooth_fs(float* fs_input, Shader_Builtins* builtins, void* uniforms) {
     pgl_vec3 c = *(pgl_vec3*)fs_input;
-    builtins->gl_FragColor = make_vec4(c.x, c.y, c.z, 1.0f);
+    builtins->gl_FragColor = make_v4(c.x, c.y, c.z, 1.0f);
 }
 
 pntr_app Main(int argc, char* argv[]) {
